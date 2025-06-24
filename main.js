@@ -317,9 +317,31 @@ function loadModel() {
                     floor02 = child;
                     floor02.visible = false;
                     
+                    // Look for checkpointViewImages in Floor_02
+                    floor02.traverse(function(floorChild) {
+                        // Add text sprites for specific view points
+                        if (floorChild.name === 'checkpointViewImages1') {
+                            const textSprite = createTextSprite("View P.Hoc");
+                            textSprite.position.set(0, 0.5, 0); // Position above the mesh
+                            floorChild.add(textSprite);
+                            console.log('Added text sprite for checkpointViewImages1');
+                        }
+                        else if (floorChild.name === 'checkpointViewImages2') {
+                            const textSprite = createTextSprite("View Hoi Truong");
+                            textSprite.position.set(0, 0.5, 0); // Position above the mesh
+                            floorChild.add(textSprite);
+                            console.log('Added text sprite for checkpointViewImages2');
+                        }
+                    });
+                    
                     // Look for checkpoints within Floor_02
                     floor02.traverse(function(floorChild) {
                         if (floorChild.name && floorChild.name.includes('checkpoint')) {
+                            // Skip adding text to checkpointViewImages1 and checkpointViewImages2 as they have custom text
+                            if (floorChild.name === 'checkpointViewImages1' || floorChild.name === 'checkpointViewImages2') {
+                                return;
+                            }
+                            
                             const checkpointNumber = floorChild.name.match(/\d+/); // Extract number from name
                             const checkpointId = checkpointNumber ? parseInt(checkpointNumber[0]) : 1;
                             
@@ -511,6 +533,27 @@ function initPanoramaScene() {
     panoramaScene = new THREE.Scene();
     panoramaCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     
+    // Set camera position and rotation
+    panoramaCamera.position.set(0.79, 0.09, 0.60);
+    
+    // Convert degrees to radians for rotation
+    const radX = -8.39 * (Math.PI / 180);
+    const radY = 52.52 * (Math.PI / 180);
+    const radZ = 6.68 * (Math.PI / 180);
+    
+    // Apply rotation
+    panoramaCamera.rotation.set(radX, radY, radZ);
+    
+    // Store as default view
+    defaultViews[currentPanoramaPath] = {
+        position: panoramaCamera.position.clone(),
+        rotation: {
+            x: radX,
+            y: radY,
+            z: radZ
+        }
+    };
+    
     // Create renderer for panorama
     panoramaRenderer = new THREE.WebGLRenderer({ antialias: true });
     panoramaRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -523,8 +566,8 @@ function initPanoramaScene() {
     panoramaControls.minDistance = 1; // Minimum zoom distance
     panoramaControls.maxDistance = 100; // Maximum zoom distance
     panoramaControls.enablePan = false;
-    panoramaControls.rotateSpeed = 1.0; // Increased for better manual rotation
-    panoramaControls.zoomSpeed = 1.2; // Adjust zoom speed
+    panoramaControls.rotateSpeed = 0.5; // Increased for better manual rotation
+    panoramaControls.zoomSpeed = 20; // Adjust zoom speed
     panoramaControls.enableDamping = true; // Adds smooth inertia to manual rotation
     panoramaControls.dampingFactor = 0.1; // Controls the inertia amount
     
@@ -635,16 +678,29 @@ function openPanorama(panoramaPath) {
             const sphere = new THREE.Mesh(geometry, material);
             panoramaScene.add(sphere);
             
-            // Apply default view if available, otherwise reset to default position
-            if (defaultViews[panoramaPath]) {
-                const view = defaultViews[panoramaPath];
-                panoramaCamera.position.set(view.position.x, view.position.y, view.position.z);
-                panoramaCamera.rotation.set(view.rotation.x, view.rotation.y, view.rotation.z);
-                console.log('Applied saved default view for', panoramaPath);
-            } else {
-                // Reset camera to default position
-                panoramaCamera.position.set(0, 0, 0);
+            // Apply default view if available, otherwise use the hardcoded default view
+            if (!defaultViews[panoramaPath]) {
+                // Set default view for this panorama if it doesn't exist
+                defaultViews[panoramaPath] = {
+                    position: new THREE.Vector3(0.79, 0.09, 0.60),
+                    rotation: {
+                        x: -8.39 * (Math.PI / 180),
+                        y: 52.52 * (Math.PI / 180),
+                        z: 6.68 * (Math.PI / 180)
+                    }
+                };
             }
+            
+            // Apply the view
+            const view = defaultViews[panoramaPath];
+            panoramaCamera.position.copy(view.position);
+            panoramaCamera.rotation.set(view.rotation.x, view.rotation.y, view.rotation.z);
+            console.log('Applied view for', panoramaPath, ':', 
+                'Position:', view.position.x.toFixed(2), view.position.y.toFixed(2), view.position.z.toFixed(2),
+                '| Rotation:', (view.rotation.x * 180 / Math.PI).toFixed(2) + '°',
+                (view.rotation.y * 180 / Math.PI).toFixed(2) + '°',
+                (view.rotation.z * 180 / Math.PI).toFixed(2) + '°'
+            );
             
             // Set initial control settings
             panoramaControls.autoRotate = false;
