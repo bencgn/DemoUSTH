@@ -267,7 +267,7 @@ function loadModel() {
                             }
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("Click View");
+                            const textSprite = createTextSprite("`Chọn Xem`");
                             textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                             floorChild.add(textSprite);
                         }
@@ -306,7 +306,7 @@ function loadModel() {
                             };
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("Click View");
+                            const textSprite = createTextSprite("Chọn Xem");
                             textSprite.position.set(0, 0.15, 0); // Position aligned with checkpoint pivot
                             checkpointMesh.add(textSprite);
                             
@@ -347,7 +347,7 @@ function loadModel() {
                             }
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("Click View");
+                            const textSprite = createTextSprite("Chọn Xem");
                             textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                             floorChild.add(textSprite);
                         }
@@ -386,7 +386,7 @@ function loadModel() {
                             }
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("Click View");
+                            const textSprite = createTextSprite("Chọn Xem");
                             textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                             floorChild.add(textSprite);
                         }
@@ -413,7 +413,7 @@ function loadModel() {
                     }
                     
                     // Add "Click View" text label above checkpoint
-                    const textSprite = createTextSprite("Click View");
+                    const textSprite = createTextSprite("Chọn Xem");
                     textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                     child.add(textSprite);
                 }
