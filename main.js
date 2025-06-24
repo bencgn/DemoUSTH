@@ -8,6 +8,7 @@ let panoramaContainer, sceneContainer;
 let isShowingPanorama = false;
 let defaultViews = {}; // Store default views for each panorama
 let currentPanoramaPath = ''; // Track current panorama
+let modelCamera = null; // Store camera from GLB model
 
 // Initialize the 3D scene
 function init() {
@@ -15,38 +16,52 @@ function init() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0xf0f0f0);
 
-    // Create camera with exact position and rotation values
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0.00, 1.28, 0.00); // Exact position from logs
+    // Camera settings - edit these values to change the view
+    const cameraSettings = {
+        position: { x: 0.00, y: 1.28, z: 0.00 },
+        rotation: { x: -90, y: 0, z: 0.05 } // in degrees
+    };
     
-    // Set exact rotation in radians (converting from degrees)
-    camera.rotation.x = -90 * Math.PI / 180; // -90 degrees in radians
-    camera.rotation.y = 0;
-    camera.rotation.z = 0.05 * Math.PI / 180; // 0.05 degrees in radians
+    // Create camera with position and rotation values
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(
+        cameraSettings.position.x, 
+        cameraSettings.position.y, 
+        cameraSettings.position.z
+    );
+    
+    // Set rotation in radians (converting from degrees)
+    camera.rotation.x = cameraSettings.rotation.x * Math.PI / 180;
+    camera.rotation.y = cameraSettings.rotation.y * Math.PI / 180;
+    camera.rotation.z = cameraSettings.rotation.z * Math.PI / 180;
 
-    // Create renderer
+    // Create renderer with flat shading
     sceneContainer = document.getElementById('scene-container');
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.enabled = false; // Disable shadows for flat appearance
+    renderer.outputEncoding = THREE.LinearEncoding; // Use linear encoding for flat appearance
+    renderer.physicallyCorrectLights = false; // Disable physically correct lighting
     sceneContainer.appendChild(renderer.domElement);
 
-    // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Add moderate ambient light for base illumination
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(5, 10, 5);
-    directionalLight.castShadow = true;
+    
+    // Add directional light from top
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.position.set(0, 10, 0); // Light from directly above
     scene.add(directionalLight);
+    
+    // We'll align this light with the camera position once the model loads
 
-    // Store default camera settings for reset
-    const defaultCameraPosition = { x: 0.00, y: 1.28, z: 0.00 };
+    // Store default camera settings for reset - uses same values as cameraSettings
+    const defaultCameraPosition = { x: cameraSettings.position.x, y: cameraSettings.position.y, z: cameraSettings.position.z };
     const defaultCameraRotation = { 
-        x: -90 * Math.PI / 180, 
-        y: 0, 
-        z: 0.05 * Math.PI / 180 
+        x: cameraSettings.rotation.x * Math.PI / 180, 
+        y: cameraSettings.rotation.y * Math.PI / 180, 
+        z: cameraSettings.rotation.z * Math.PI / 180 
     };
     
     // Add orbit controls with rotation locked
@@ -57,21 +72,6 @@ function init() {
     controls.enablePan = true; // Allow panning (moving around)
     controls.enableZoom = true; // Allow zooming
     
-    // Add reset button to UI
-    const uiContainer = document.getElementById('ui');
-    const resetViewBtn = document.createElement('button');
-    resetViewBtn.textContent = 'Reset View';
-    resetViewBtn.className = 'floor-btn reset-btn';
-    resetViewBtn.addEventListener('click', resetCameraView);
-    uiContainer.appendChild(resetViewBtn);
-    
-    // Function to reset camera to default view
-    function resetCameraView() {
-        camera.position.set(defaultCameraPosition.x, defaultCameraPosition.y, defaultCameraPosition.z);
-        camera.rotation.set(defaultCameraRotation.x, defaultCameraRotation.y, defaultCameraRotation.z);
-        controls.update();
-    }
-
     // Setup raycaster for detecting clicks
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
@@ -91,8 +91,44 @@ function init() {
     animate();
 }
 
+// Create a text sprite
+function createTextSprite(text) {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.width = 128;
+    canvas.height = 64;
+    
+    // Background
+    context.fillStyle = 'rgba(0, 0, 0, 0.18)';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Text
+    context.font = 'bold 16px Arial';
+    context.fillStyle = 'white';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(text, canvas.width / 2, canvas.height / 2);
+    
+    // Create texture
+    const texture = new THREE.CanvasTexture(canvas);
+    const material = new THREE.SpriteMaterial({ 
+        map: texture,
+        sizeAttenuation: true,
+        depthTest: false,
+        depthWrite: false
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(0.2, 0.1, 0.2);
+    sprite.center.set(0.5, 0); // Align bottom center of sprite with pivot point
+    
+    return sprite;
+}
+
 // Load the GLB model
 function loadModel() {
+    // Show loading overlay
+    document.getElementById('loading-overlay').style.display = 'flex';
+    
     const loader = new THREE.GLTFLoader();
     loader.load(
         'scener.glb',
@@ -100,11 +136,100 @@ function loadModel() {
             model = gltf.scene;
             scene.add(model);
             
+            // Hide loading overlay when model is loaded
+            document.getElementById('loading-overlay').style.display = 'none';
+            
             console.log('Model loaded, structure:', model);
+            
+            // Adjust materials for better appearance with top-down lighting
+            model.traverse(function(node) {
+                if (node.isMesh && node.material) {
+                    // Handle both single materials and material arrays
+                    if (Array.isArray(node.material)) {
+                        node.material.forEach(material => {
+                            // Keep original materials but adjust properties
+                            if (material.map) {
+                                // Ensure textures are displayed properly
+                                material.map.encoding = THREE.LinearEncoding;
+                            }
+                            // Reduce specular highlights
+                            if (material.shininess !== undefined) {
+                                material.shininess = 5; // Lower shininess
+                            }
+                            // For PBR materials
+                            if (material.metalness !== undefined) {
+                                material.metalness = 0.1;
+                                material.roughness = 0.8;
+                            }
+                        });
+                    } else {
+                        // Keep original material but adjust properties
+                        if (node.material.map) {
+                            // Ensure textures are displayed properly
+                            node.material.map.encoding = THREE.LinearEncoding;
+                        }
+                        // Reduce specular highlights
+                        if (node.material.shininess !== undefined) {
+                            node.material.shininess = 5; // Lower shininess
+                        }
+                        // For PBR materials
+                        if (node.material.metalness !== undefined) {
+                            node.material.metalness = 0.1;
+                            node.material.roughness = 0.8;
+                        }
+                    }
+                }
+            });
             
             // Find the floor groups
             model.traverse(function (child) {
                 console.log('Traversing child:', child.name, child.type);
+                
+                // Find Camera object in the model
+                if (child.name === 'Camera') {
+                    modelCamera = child;
+                    console.log('Found Camera in model:', modelCamera);
+                    
+                    // Use model camera position and rotation for main camera
+                    camera.position.copy(modelCamera.position);
+                    camera.rotation.copy(modelCamera.rotation);
+                    
+                    // Update the default camera settings for reset function
+                    defaultCameraPosition.x = modelCamera.position.x;
+                    defaultCameraPosition.y = modelCamera.position.y;
+                    defaultCameraPosition.z = modelCamera.position.z;
+                    
+                    defaultCameraRotation.x = modelCamera.rotation.x;
+                    defaultCameraRotation.y = modelCamera.rotation.y;
+                    defaultCameraRotation.z = modelCamera.rotation.z;
+                    
+                    // Align directional light with camera position
+                    // Position light slightly above and in front of camera
+                    const cameraDirection = new THREE.Vector3(0, 0, -1);
+                    cameraDirection.applyQuaternion(modelCamera.quaternion);
+                    
+                    // Position light 5 units above camera in the direction it's facing
+                    directionalLight.position.copy(modelCamera.position);
+                    directionalLight.position.y += 5; // Light from above
+                    directionalLight.target.position.copy(modelCamera.position);
+                    directionalLight.target.position.add(cameraDirection);
+                    scene.add(directionalLight.target); // Important: add target to scene
+                    
+                    console.log('Aligned directional light with camera');
+                    
+                    // Update controls
+                    controls.update();
+                    
+                    console.log('Applied model camera position:', 
+                        modelCamera.position.x.toFixed(2),
+                        modelCamera.position.y.toFixed(2),
+                        modelCamera.position.z.toFixed(2),
+                        '| Rotation:',
+                        (modelCamera.rotation.x * 180 / Math.PI).toFixed(2) + '°',
+                        (modelCamera.rotation.y * 180 / Math.PI).toFixed(2) + '°',
+                        (modelCamera.rotation.z * 180 / Math.PI).toFixed(2) + '°'
+                    );
+                }
                 
                 if (child.name === 'Floor_01') {
                     floor01 = child;
@@ -140,6 +265,11 @@ function loadModel() {
                                     transparent: true
                                 });
                             }
+                            
+                            // Add "Click View" text label above checkpoint
+                            const textSprite = createTextSprite("Click View");
+                            textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
+                            floorChild.add(textSprite);
                         }
                     });
                     
@@ -147,8 +277,8 @@ function loadModel() {
                     if (Object.keys(checkpoints).length === 0) {
                         console.log('No checkpoints found, creating fallback clickable areas');
                         
-                        // Create 3 checkpoint spheres (matching available panorama files)
-                        for (let i = 1; i <= 3; i++) {
+                        // Create 5 checkpoint spheres
+                        for (let i = 1; i <= 5; i++) {
                             const checkpointMesh = new THREE.Mesh(
                                 new THREE.SphereGeometry(0.3, 32, 32),
                                 new THREE.MeshBasicMaterial({ 
@@ -175,15 +305,92 @@ function loadModel() {
                                 panoramaPath: `panorama/floor1/Panorama${i}.png`
                             };
                             
+                            // Add "Click View" text label above checkpoint
+                            const textSprite = createTextSprite("Click View");
+                            textSprite.position.set(0, 0.15, 0); // Position aligned with checkpoint pivot
+                            checkpointMesh.add(textSprite);
+                            
                             console.log(`Created fallback ${checkpointName}, linked to Panorama${i}.png`);
                         }
                     }
                 } else if (child.name === 'Floor_02') {
                     floor02 = child;
                     floor02.visible = false;
+                    
+                    // Look for checkpoints within Floor_02
+                    floor02.traverse(function(floorChild) {
+                        if (floorChild.name && floorChild.name.includes('checkpoint')) {
+                            const checkpointNumber = floorChild.name.match(/\d+/); // Extract number from name
+                            const checkpointId = checkpointNumber ? parseInt(checkpointNumber[0]) : 1;
+                            
+                            checkpoints[floorChild.name] = {
+                                mesh: floorChild,
+                                panoramaPath: `panorama/floor2/Panorama${checkpointId}.png`
+                            };
+                            
+                            console.log(`Found ${floorChild.name} in Floor_02, linked to Panorama${checkpointId}.png`);
+                            
+                            // Add a highlight material to make it more visible
+                            if (floorChild.material) {
+                                floorChild.userData.originalMaterial = floorChild.material.clone();
+                                floorChild.material = new THREE.MeshBasicMaterial({ 
+                                    color: 0xff0000,
+                                    opacity: 0.7,
+                                    transparent: true
+                                });
+                            } else {
+                                floorChild.material = new THREE.MeshBasicMaterial({ 
+                                    color: 0xff0000,
+                                    opacity: 0.7,
+                                    transparent: true
+                                });
+                            }
+                            
+                            // Add "Click View" text label above checkpoint
+                            const textSprite = createTextSprite("Click View");
+                            textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
+                            floorChild.add(textSprite);
+                        }
+                    });
                 } else if (child.name === 'Floor_03') {
                     floor03 = child;
                     floor03.visible = false;
+                    
+                    // Look for checkpoints within Floor_03
+                    floor03.traverse(function(floorChild) {
+                        if (floorChild.name && floorChild.name.includes('checkpoint')) {
+                            const checkpointNumber = floorChild.name.match(/\d+/); // Extract number from name
+                            const checkpointId = checkpointNumber ? parseInt(checkpointNumber[0]) : 1;
+                            
+                            checkpoints[floorChild.name] = {
+                                mesh: floorChild,
+                                panoramaPath: `panorama/floor3/Panorama${checkpointId}.png`
+                            };
+                            
+                            console.log(`Found ${floorChild.name} in Floor_03, linked to Panorama${checkpointId}.png`);
+                            
+                            // Add a highlight material to make it more visible
+                            if (floorChild.material) {
+                                floorChild.userData.originalMaterial = floorChild.material.clone();
+                                floorChild.material = new THREE.MeshBasicMaterial({ 
+                                    color: 0xff0000,
+                                    opacity: 0.7,
+                                    transparent: true
+                                });
+                            } else {
+                                floorChild.material = new THREE.MeshBasicMaterial({ 
+                                    color: 0xff0000,
+                                    opacity: 0.7,
+                                    transparent: true
+                                });
+                            }
+                            
+                            // Add "Click View" text label above checkpoint
+                            const textSprite = createTextSprite("Click View");
+                            textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
+                            floorChild.add(textSprite);
+                        }
+                    });
                 } else if (child.name && child.name.includes('checkpoint')) {
                     const checkpointNumber = child.name.match(/\d+/); // Extract number from name
                     const checkpointId = checkpointNumber ? parseInt(checkpointNumber[0]) : 1;
@@ -204,6 +411,11 @@ function loadModel() {
                             transparent: true
                         });
                     }
+                    
+                    // Add "Click View" text label above checkpoint
+                    const textSprite = createTextSprite("Click View");
+                    textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
+                    child.add(textSprite);
                 }
             });
 
@@ -390,11 +602,8 @@ function openPanorama(panoramaPath) {
     // Default path if none provided
     panoramaPath = panoramaPath || 'panorama/floor1/Panorama1.png';
     
-    // Make sure we only try to load panoramas that exist (1-3)
-    if (panoramaPath.includes('Panorama4.png') || panoramaPath.includes('Panorama5.png')) {
-        console.log('Panorama file not found, using Panorama1.png as fallback');
-        panoramaPath = 'panorama/floor1/Panorama1.png';
-    }
+    // Support all panoramas (1-5)
+    console.log('Loading panorama:', panoramaPath);
     
     // Store current panorama path
     currentPanoramaPath = panoramaPath;
