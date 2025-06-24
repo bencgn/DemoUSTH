@@ -14,7 +14,7 @@ let modelCamera = null; // Store camera from GLB model
 function init() {
     // Create scene
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
+    scene.background = new THREE.Color(0x000000);
 
     // Camera settings - edit these values to change the view
     const cameraSettings = {
@@ -267,7 +267,7 @@ function loadModel() {
                             }
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("`Chọn Xem`");
+                            const textSprite = createTextSprite("Chọn Để Xem");
                             textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                             floorChild.add(textSprite);
                         }
@@ -306,7 +306,7 @@ function loadModel() {
                             };
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("Chọn Xem");
+                            const textSprite = createTextSprite("Chọn Để Xem");
                             textSprite.position.set(0, 0.15, 0); // Position aligned with checkpoint pivot
                             checkpointMesh.add(textSprite);
                             
@@ -347,7 +347,7 @@ function loadModel() {
                             }
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("Chọn Xem");
+                            const textSprite = createTextSprite("Chọn Để Xem");
                             textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                             floorChild.add(textSprite);
                         }
@@ -386,7 +386,7 @@ function loadModel() {
                             }
                             
                             // Add "Click View" text label above checkpoint
-                            const textSprite = createTextSprite("Chọn Xem");
+                            const textSprite = createTextSprite("Chọn Để Xem");
                             textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                             floorChild.add(textSprite);
                         }
@@ -413,7 +413,7 @@ function loadModel() {
                     }
                     
                     // Add "Click View" text label above checkpoint
-                    const textSprite = createTextSprite("Chọn Xem");
+                    const textSprite = createTextSprite("Chọn Để Xem");
                     textSprite.position.set(0, 0.1, 0); // Position aligned with checkpoint pivot
                     child.add(textSprite);
                 }
@@ -649,7 +649,7 @@ function openPanorama(panoramaPath) {
             // Set initial control settings
             panoramaControls.autoRotate = false;
             panoramaControls.autoRotateSpeed = 1.0;
-            document.getElementById('auto-rotate').textContent = 'Auto Rotate';
+            document.getElementById('auto-rotate').textContent = 'Tự Động Xoay';
             
             panoramaControls.update();
             
