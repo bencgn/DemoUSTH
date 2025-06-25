@@ -507,6 +507,12 @@ function onClick(event) {
             // Find the checkpoint in our collection
             if (checkpoints[clickedCheckpointName]) {
                 console.log(`Checkpoint ${clickedCheckpointName} clicked! Opening panorama...`);
+                
+                // Show loading overlay with "Đang tải..." message
+                const loadingOverlay = document.getElementById('loading-overlay');
+                loadingOverlay.style.display = 'flex';
+                
+                // Open panorama
                 openPanorama(checkpoints[clickedCheckpointName].panoramaPath);
             } else {
                 console.log('Clicked object is not in our checkpoints collection:', clickedCheckpointName);
@@ -708,6 +714,10 @@ function openPanorama(panoramaPath) {
             document.getElementById('auto-rotate').textContent = 'Tự Động Xoay';
             
             panoramaControls.update();
+            
+            // Hide loading overlay
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.style.display = 'none';
             
             // Show panorama container
             panoramaContainer.style.display = 'block';
